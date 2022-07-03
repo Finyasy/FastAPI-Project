@@ -1,5 +1,5 @@
 from datetime import timedelta, datetime
-from typing import Optional
+from typing import Optional,Union
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
@@ -19,6 +19,12 @@ Base.metadata.create_all(bind=engine)
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+class User(BaseModel):
+    username: str
+    email: Union[str, None] = None
+    full_name: Union[str, None] = None
+    disabled: Union[bool, None] = None
 
 # setups for JWT
 SECRET_KEY = 'SOME-SECRET-KEY'
@@ -78,16 +84,24 @@ async def get_identity(token: str = Depends(oauth2_scheme)):
         detail='invalid credentials',
         headers={"WWW-Authenticate": "Bearer"}
     )
-
     try:
         # decode the token
         payload = jwt.decode(token=token, key=SECRET_KEY, algorithms=ALGORITHM)
-        identity: str  = payload.get('sub')
+        identity: str = payload.get('sub')
         if identity is None:
             raise exception
     except JWTError:
         raise exception
     return identity
+
+async def get_identity_active(identity_active: User = Depends(get_identity)):
+    """
+        This function is used to get the current user.
+        It is used in the routers.py file.
+    """
+    if identity_active.disabled:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive Identity")
+    return identity_active
 
 @app.get('/')
 async def home():
