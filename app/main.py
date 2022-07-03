@@ -9,49 +9,33 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from routers import task_router, user_router
 
-
-
 # database setup
 from db.config import Base, engine, get_db
 from models.users import UserModel
 from models.tasks import TaskModel
 Base.metadata.create_all(bind=engine)
 
-
 # token
 class Token(BaseModel):
     access_token: str
     token_type: str
-
-
-
 
 # setups for JWT
 SECRET_KEY = 'SOME-SECRET-KEY'
 ALGORITHM = 'HS256'
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-
-
-
 # setup passlib object to manage your hashes and related policy configuration.
-pwd_context = CryptContext(schemes=['bcrypt'])
-
+pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 
 """
     Replace this list with the hash(es) you wish to support.
     this example sets pbkdf2_sha256 as the default,
     with additional support for reading legacy des_crypt hashes.
 
-
 """
-
-
 # setup the security
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-
-
 
 app = FastAPI(
     title="Implementing Security",
@@ -59,13 +43,9 @@ app = FastAPI(
     version="1.0.0"
 )
 
-
-
-
 # verify user || returns either true or false
 def check_password_hash(password, hashed_passed):
     return pwd_context.verify(password, hashed_passed)
-
 
 # authenticate user
 def authenticate_user(db: Session, username: str, password: str):
