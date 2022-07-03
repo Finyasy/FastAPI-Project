@@ -1,6 +1,6 @@
 from datetime import timedelta, datetime
 from typing import Optional
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -52,12 +52,9 @@ def authenticate_user(db: Session, username: str, password: str):
     user = db.query(UserModel).filter(UserModel.username == username).first()
     if not user:
         return False
-    if not check_password_hash(password=password, hashed_passed=user.password):
+    if not check_password_hash(password=password, hashed_passed=user.hashed_password):
         return False
     return user
-
-
-
 
 # create access token
 def create_access_token(identity: dict, expires_delta: Optional[timedelta] = None):
@@ -67,19 +64,17 @@ def create_access_token(identity: dict, expires_delta: Optional[timedelta] = Non
         expire = datetime.utcnow() + expires_delta
     else:
         expire = datetime.utcnow() + timedelta(minutes=15)
-    
     # update your your dict
     new_identity.update({'exp':expire})
-    # encoded toke
+    # encoded token
     encoded_jwt = jwt.encode(claims=new_identity, key=SECRET_KEY, algorithm=ALGORITHM)
-    
     return encoded_jwt
 
 
 # get current user
 async def get_identity(token: str = Depends(oauth2_scheme)):
     exception = HTTPException(
-        status_code=401,
+        status_code=status.HTTP_401_UNAUTHORIZED,
         detail='invalid credentials',
         headers={"WWW-Authenticate": "Bearer"}
     )
@@ -92,12 +87,7 @@ async def get_identity(token: str = Depends(oauth2_scheme)):
             raise exception
     except JWTError:
         raise exception
-
-
     return identity
-
-
-
 
 @app.get('/')
 async def home():
