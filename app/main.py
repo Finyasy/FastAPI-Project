@@ -1,12 +1,14 @@
+from datetime import timedelta, datetime
+from typing import Optional
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from fastapi.encoders import jsonable_encoder
+from jose import JWTError, jwt
 from passlib.context import CryptContext
-from jose import JWTError,jwt
-from typing import Optional, Any
-from datetime import timedelta, datetime
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from routers import task_router, user_router
+
 
 
 # database setup
@@ -14,12 +16,6 @@ from db.config import Base, engine, get_db
 from models.users import UserModel
 from models.tasks import TaskModel
 Base.metadata.create_all(bind=engine)
-
-
-# routers 
-from routers import task_router, user_router
-
-
 
 
 # token
@@ -72,8 +68,8 @@ def check_password_hash(password, hashed_passed):
 
 
 # authenticate user
-def authenticate_user(db:Session,username:str, password:str):
-    user = db.query(UserModel).filter(UserModel.username==username).first()
+def authenticate_user(db: Session, username: str, password: str):
+    user = db.query(UserModel).filter(UserModel.username == username).first()
     if not user:
         return False
     if not check_password_hash(password=password, hashed_passed=user.password):
@@ -84,13 +80,12 @@ def authenticate_user(db:Session,username:str, password:str):
 
 
 # create access token
-def create_access_token(identity:dict, expires_delta:Optional[timedelta] = None):
+def create_access_token(identity: dict, expires_delta: Optional[timedelta] = None):
     """setup expiry for your tokens"""
     new_identity = identity.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        """default expiry time will be 15minutes"""
         expire = datetime.utcnow() + timedelta(minutes=15)
     
     # update your your dict
@@ -108,11 +103,11 @@ async def get_identity(token: str = Depends(oauth2_scheme)):
         detail='invalid credentials',
         headers={"WWW-Authenticate": "Bearer"}
     )
-  
+
     try:
         # decode the token
         payload = jwt.decode(token=token, key=SECRET_KEY, algorithms=ALGORITHM)
-        identity:str  = payload.get('sub')
+        identity: str  = payload.get('sub')
         if identity is None:
             raise exception
     except JWTError:
@@ -130,7 +125,7 @@ async def home():
 
 
 @app.post('/token', response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session= Depends(get_db)):
+async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = authenticate_user(db=db, username=form_data.username, password=form_data.password)
     if not user:
         raise HTTPException(
@@ -141,14 +136,12 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session= D
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     token = create_access_token(identity={'sub': user.id}, expires_delta=access_token_expires)
     return {"access_token": token, "token_type": "bearer"}
-    
-
 
 app.include_router(
     user_router.router,
     prefix='/users',
     tags=['User Operations'],
-    responses={200:{'description':'Ok'}, 201:{'description':'Created'}, 400:{'description':'Bad Request'}, 401:{'desription':'Unauthorized'}}
+    responses={200:{'description':'Ok'},201:{'description':'Created'},400:{'description':'Bad Request'},401:{'desription':'Unauthorized'}}
 )
 
 
